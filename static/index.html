@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Task Analyst Chat</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f7f7f7; margin: 0; }
+        #app { max-width: 500px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px; }
+        .chat-history { max-height: 350px; overflow-y: auto; margin-bottom: 16px; }
+        .msg { margin-bottom: 12px; }
+        .msg.user { text-align: right; }
+        .msg.ai { text-align: left; }
+        .msg .bubble { display: inline-block; padding: 10px 16px; border-radius: 16px; max-width: 80%; }
+        .msg.user .bubble { background: #e0f7fa; color: #00796b; }
+        .msg.ai .bubble { background: #ececec; color: #333; }
+        .input-row { display: flex; gap: 8px; }
+        input[type=text] { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc; }
+        button { padding: 10px 18px; border-radius: 8px; border: none; background: #00796b; color: #fff; cursor: pointer; }
+        button:disabled { background: #b2dfdb; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+<div id="app">
+    <h2>AI Task Analyst</h2>
+    <div class="chat-history">
+        <div v-for="(item, idx) in chat" :key="idx">
+            <div class="msg user" v-if="item[0]">
+                <div class="bubble">{{ item[0] }}</div>
+            </div>
+            <div class="msg ai" v-if="item[1]">
+                <div class="bubble">{{ item[1] }}</div>
+            </div>
+        </div>
+        <div v-if="loading" class="msg ai"><div class="bubble">AI sedang mengetik...</div></div>
+    </div>
+    <form class="input-row" @submit.prevent="sendMessage">
+        <input type="text" v-model="message" placeholder="Tulis pertanyaan..." :disabled="loading" autocomplete="off" />
+        <button :disabled="!message || loading">Kirim</button>
+    </form>
+</div>
+<script>
+const randomSession = () => 'sess-' + Math.random().toString(36).slice(2, 12);
+const { createApp, ref, onMounted } = Vue;
+createApp({
+    setup() {
+        const message = ref("");
+        const chat = ref([]);
+        const loading = ref(false);
+        const session_id = localStorage.getItem('session_id') || randomSession();
+        localStorage.setItem('session_id', session_id);
+
+        const fetchHistory = async () => {
+            try {
+                const res = await fetch(`/history/${session_id}`);
+                const data = await res.json();
+                chat.value = data.history || [];
+            } catch {}
+        };
+
+        const sendMessage = async () => {
+            if (!message.value) return;
+            loading.value = true;
+            const userMsg = message.value;
+            chat.value.push([userMsg, null]);
+            message.value = "";
+            try {
+                const res = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: userMsg, session_id })
+                });
+                const data = await res.json();
+                chat.value = data.history || [];
+            } catch {
+                chat.value.push([null, 'Gagal menghubungi server.']);
+            }
+            loading.value = false;
+        };
+
+        onMounted(fetchHistory);
+
+        return { message, chat, loading, sendMessage };
+    }
+}).mount('#app');
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Environment
+.env
+venv/
+.env.*
+
+# Database & log
+*.db
+*.sqlite3
+app.log
+
+# VSCode/IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node/npm (jika ada)
+node_modules/
+
+# Static build (jika ada)
+static/dist/
