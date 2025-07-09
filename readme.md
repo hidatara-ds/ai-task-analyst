@@ -1,10 +1,12 @@
 # AI Task Analyst Web
 
-Web AI sederhana untuk menanyakan pertanyaan terkait data tugas/proyek yang ada di database, dengan chat yang mengingat percakapan sebelumnya.  
-Backend: FastAPI (Python)  
-Frontend: HTML + Vue (CDN)  
-Database: SQLite (otomatis dari file SQL)  
-LLM: API (Google AI Studio, OpenAI, dsb, via `.env`)
+Web AI sederhana untuk menanyakan pertanyaan terkait data tugas/proyek yang ada di database, dengan chat yang mengingat percakapan sebelumnya.
+
+---
+
+## **Contoh Diagram Flow**
+
+![Diagram Flow](diagram-flow.png)
 
 ---
 
@@ -94,7 +96,7 @@ http://127.0.0.1:8000/static/index.html
 ## **Troubleshooting & Error Handling**
 
 ### **Error: `sqlite3.OperationalError: no such table: user`**
-**Penyebab:**  
+**Penyebab:**
 File `tasks.db` sudah ada, tapi kosong/tidak sesuai schema.
 
 **Solusi:**
