@@ -19,6 +19,20 @@
         input[type=text] { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc; }
         button { padding: 10px 18px; border-radius: 8px; border: none; background: #00796b; color: #fff; cursor: pointer; }
         button:disabled { background: #b2dfdb; cursor: not-allowed; }
+        ul {
+          padding-left: 20px;
+        }
+        li {
+          margin-bottom: 8px;
+        }
+        table {
+          border-collapse: collapse;
+          width: 100%;
+        }
+        th, td {
+          border: 1px solid #ddd;
+          padding: 8px;
+        }
     </style>
 </head>
 <body>
@@ -30,7 +44,7 @@
                 <div class="bubble">{{ item[0] }}</div>
             </div>
             <div class="msg ai" v-if="item[1]">
-                <div class="bubble">{{ item[1] }}</div>
+                <div class="bubble" v-html="item[1]"></div>
             </div>
         </div>
         <div v-if="loading" class="msg ai"><div class="bubble">AI sedang mengetik...</div></div>
