@@ -7,14 +7,68 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <style>
         body { font-family: Arial, sans-serif; background: #f7f7f7; margin: 0; }
-        #app { max-width: 800px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px; }
-        .chat-history { max-height: 350px; overflow-y: auto; margin-bottom: 16px; }
-        .msg { margin-bottom: 12px; }
+        #app { 
+          max-width: 900px; 
+          margin: 60px auto 0 auto; 
+          background: #fff; 
+          border-radius: 12px; 
+          box-shadow: 0 4px 24px #0002; 
+          padding: 40px 32px 60px 32px; 
+          min-height: 80vh;
+        }
+        .chat-history { 
+          max-height: 60vh; 
+          min-height: 350px; 
+          overflow-y: auto; 
+          margin-bottom: 24px; 
+          padding-bottom: 60px; 
+          scroll-behavior: smooth;
+        }
+        .msg { margin-bottom: 20px; }
         .msg.user { text-align: right; }
         .msg.ai { text-align: left; }
-        .msg .bubble { display: inline-block; padding: 10px 16px; border-radius: 16px; max-width: 80%; }
+        .msg .bubble { 
+          display: inline-block; 
+          padding: 16px 22px; 
+          border-radius: 18px; 
+          max-width: 90%; 
+          font-size: 18px;
+        }
         .msg.user .bubble { background: #e0f7fa; color: #00796b; }
         .msg.ai .bubble { background: #ececec; color: #333; }
+        .msg .bubble pre, .msg .bubble code {
+          background: #f4f4f4;
+          font-family: 'Fira Mono', 'Consolas', 'Menlo', monospace;
+          font-size: 15px;
+          border-radius: 8px;
+          padding: 8px 12px;
+          overflow-x: auto;
+          display: block;
+          white-space: pre-wrap;
+        }
+        .msg .bubble table {
+          border-collapse: collapse;
+          width: 100%;
+          margin: 8px 0;
+        }
+        .msg .bubble th, .msg .bubble td {
+          border: 1px solid #bbb;
+          padding: 8px 10px;
+          text-align: left;
+          word-break: break-word;
+        }
+        .msg .bubble th {
+          background: #e0f7fa;
+        }
+        .msg .bubble tr:nth-child(even) {
+          background: #f7f7f7;
+        }
+        @media (max-width: 600px) {
+          #app { padding: 8px; }
+          .msg .bubble { max-width: 98%; font-size: 15px; }
+          .chat-history { max-height: 60vh; min-height: 200px; }
+          .msg .bubble table, .msg .bubble th, .msg .bubble td { font-size: 13px; }
+        }
         .input-row { display: flex; gap: 8px; }
         input[type=text] { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc; }
         button { padding: 10px 18px; border-radius: 8px; border: none; background: #00796b; color: #fff; cursor: pointer; }
@@ -38,13 +92,13 @@
 <body>
 <div id="app">
     <h2>AI Task Analyst</h2>
-    <div class="chat-history">
+    <div class="chat-history" ref="chatHistoryDiv">
         <div v-for="(item, idx) in chat" :key="idx">
             <div class="msg user" v-if="item[0]">
                 <div class="bubble">{{ item[0] }}</div>
             </div>
             <div class="msg ai" v-if="item[1]">
-                <div class="bubble" v-html="item[1]"></div>
+                <div class="bubble" v-html="renderAI(item[1])"></div>
             </div>
         </div>
         <div v-if="loading" class="msg ai"><div class="bubble">AI sedang mengetik...</div></div>
@@ -56,7 +110,7 @@
 </div>
 <script>
 const randomSession = () => 'sess-' + Math.random().toString(36).slice(2, 12);
-const { createApp, ref, onMounted } = Vue;
+const { createApp, ref, onMounted, watch } = Vue;
 createApp({
     setup() {
         const message = ref("");
@@ -64,6 +118,8 @@ createApp({
         const loading = ref(false);
         const session_id = localStorage.getItem('session_id') || randomSession();
         localStorage.setItem('session_id', session_id);
+
+        const chatHistoryDiv = ref(null);
 
         const fetchHistory = async () => {
             try {
@@ -77,25 +133,82 @@ createApp({
             if (!message.value) return;
             loading.value = true;
             const userMsg = message.value;
-            chat.value.push([userMsg, null]);
+            chat.value.push([userMsg, ""]);
+            const idx = chat.value.length - 1;
             message.value = "";
             try {
-                const res = await fetch('/chat', {
+                const res = await fetch('/chat_stream', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: userMsg, session_id })
                 });
-                const data = await res.json();
-                chat.value = data.history || [];
+                if (!res.body || !window.ReadableStream) {
+                    // fallback jika streaming tidak didukung
+                    const text = await res.text();
+                    chat.value[idx][1] = text;
+                } else {
+                    const reader = res.body.getReader();
+                    const decoder = new TextDecoder();
+                    let aiText = '';
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        aiText += decoder.decode(value, { stream: true });
+                        chat.value[idx][1] = aiText;
+                    }
+                }
             } catch {
-                chat.value.push([null, 'Gagal menghubungi server.']);
+                chat.value[idx][1] = 'Gagal menghubungi server.';
             }
             loading.value = false;
         };
 
+        const scrollToBottom = () => {
+            if (chatHistoryDiv.value) {
+                chatHistoryDiv.value.scrollTo({
+                    top: chatHistoryDiv.value.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+        };
+
+        const renderAI = (text) => {
+            // Jika sudah HTML, langsung tampilkan
+            if (/<table|<ul|<ol|<br|<pre|<code|<b|<strong|<em|<i|<u|<hr|<h[1-6]/i.test(text)) return text;
+            // Markdown table ke HTML table
+            if (/\|.*\|/.test(text)) {
+                // Markdown table to HTML
+                const lines = text.trim().split(/\n|<br\s*\/?/i);
+                const tableLines = lines.filter(l => l.includes('|'));
+                if (tableLines.length >= 2) {
+                    let html = '<table><tbody>';
+                    for (let i = 0; i < tableLines.length; i++) {
+                        let row = tableLines[i].trim();
+                        if (!row) continue;
+                        let cells = row.split('|').map(c => c.trim()).filter(Boolean);
+                        if (i === 0) html += '<tr>' + cells.map(c => `<th>${c}</th>`).join('') + '</tr>';
+                        else html += '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
+                    }
+                    html += '</tbody></table>';
+                    return html;
+                }
+            }
+            // Markdown code block
+            if (/```[\s\S]*?```/.test(text)) {
+                return text.replace(/```([a-zA-Z]*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+            }
+            // Baris baru ke <br>
+            return text.replace(/\n/g, '<br>');
+        };
+
         onMounted(fetchHistory);
 
-        return { message, chat, loading, sendMessage };
+        // Scroll otomatis ke bawah setiap ada update chat
+        watch(chat, () => {
+            setTimeout(scrollToBottom, 100);
+        }, { deep: true });
+
+        return { message, chat, loading, sendMessage, chatHistoryDiv, renderAI };
     }
 }).mount('#app');
 </script>
