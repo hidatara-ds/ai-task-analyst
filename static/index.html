@@ -137,26 +137,13 @@ createApp({
             const idx = chat.value.length - 1;
             message.value = "";
             try {
-                const res = await fetch('/chat_stream', {
+                const res = await fetch('/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: userMsg, session_id })
                 });
-                if (!res.body || !window.ReadableStream) {
-                    // fallback jika streaming tidak didukung
-                    const text = await res.text();
-                    chat.value[idx][1] = text;
-                } else {
-                    const reader = res.body.getReader();
-                    const decoder = new TextDecoder();
-                    let aiText = '';
-                    while (true) {
-                        const { value, done } = await reader.read();
-                        if (done) break;
-                        aiText += decoder.decode(value, { stream: true });
-                        chat.value[idx][1] = aiText;
-                    }
-                }
+                const data = await res.json();
+                chat.value[idx][1] = data.answer || 'Tidak ada jawaban dari AI.';
             } catch {
                 chat.value[idx][1] = 'Gagal menghubungi server.';
             }
