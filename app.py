@@ -67,9 +67,16 @@ def get_history(session_id: str) -> List[tuple]:
 
 
 def save_history(session_id: str, user_message: str, ai_response: str):
-    # (Fungsi ini sama seperti sebelumnya)
     conn = get_db_conn()
     cur = conn.cursor()
+    # Buat tabel chat_history jika belum ada
+    cur.execute('''CREATE TABLE IF NOT EXISTS chat_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT,
+        user_message TEXT,
+        ai_response TEXT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )''')
     cur.execute('''INSERT INTO chat_history (session_id, user_message, ai_response) VALUES (?, ?, ?)''',
                 (session_id, user_message, ai_response))
     conn.commit()
@@ -161,101 +168,137 @@ async def chat(request: Request):
 
     logger.info(f"[CHAT] session={session_id} user_message='{user_message}'")
 
-    # === LANGKAH 1: ROUTING ===
-    # Definisikan semua kemungkinan tindakan sebagai "tools" untuk router.
-    routing_tools = [
-        {
-            "name": "search_activities",
-            "description": "Gunakan untuk pencarian dan filter data aktivitas/task berdasarkan kriteria spesifik. Contoh: 'cari task yang dikerjakan Budi', 'tampilkan pekerjaan dengan status done', 'aktivitas bulan Januari', 'task proyek website'.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "user_name": {"type": "string", "description": "Nama user/karyawan yang mengerjakan task"},
-                    "status": {"type": "string", "description": "Status pekerjaan: 'todo', 'in-progress', atau 'done'"},
-                    "task_name": {"type": "string", "description": "Nama proyek atau task yang dicari"},
-                    "bulan": {"type": "string", "description": "Bulan dalam format 2 digit ('01'-'12'), contoh: '01' untuk Januari"}
-                }
-            }
-        },
-        {
-            "name": "get_user_list",
-            "description": "Gunakan saat user meminta daftar semua user/karyawan/anggota tim. Contoh: 'siapa saja anggota tim?', 'tampilkan semua karyawan', 'daftar user'.",
-            "parameters": {"type": "object", "properties": {}}
-        },
-        {
-            "name": "analyze_full_data",
-            "description": "Gunakan untuk analisis kompleks, perbandingan, statistik, atau ringkasan data. Contoh: 'siapa yang paling produktif?', 'berapa total task selesai bulan ini?', 'bandingkan performa tim', 'buat laporan bulanan', 'statistik pekerjaan'.",
-            "parameters": {"type": "object", "properties": {}}
-        },
-        {
-            "name": "general_conversation",
-            "description": "Gunakan untuk percakapan umum, sapaan, pertanyaan tentang AI, atau permintaan di luar konteks data task. Contoh: 'halo', 'siapa kamu?', 'apa kabar?', 'terima kasih'.",
-            "parameters": {"type": "object", "properties": {}}
-        }
-    ]
+    # === LANGKAH 1: AMBIL HISTORY UNTUK CONTEXT ===
+    chat_history = get_history(session_id)
+    context_messages = []
+    
+    # Ambil 3 pesan terakhir untuk context
+    for user_msg, ai_msg in chat_history[-3:]:
+        context_messages.append(f"User: {user_msg}")
+        context_messages.append(f"AI: {ai_msg}")
+    
+    context_text = "\n".join(context_messages) if context_messages else ""
 
-    router_prompt_system = """Anda adalah AI router yang cerdas untuk sistem manajemen task dan aktivitas.
+    # === LANGKAH 2: SMART ROUTING DENGAN CONTEXT ===
+    routing_prompt = f"""Anda adalah AI router yang cerdas. Analisis permintaan user dan context percakapan sebelumnya.
+
+CONTEXT PERCAKAPAN SEBELUMNYA:
+{context_text}
+
+PERTANYAAN USER SAAT INI: {user_message}
 
 TUGAS ANDA:
-- Analisis permintaan user dengan teliti
-- Pilih fungsi yang paling tepat untuk menjawab permintaan
-- JANGAN menjawab pertanyaan user, cukup pilih fungsi yang benar
+Pilih fungsi yang paling tepat berdasarkan pertanyaan user dan context.
+
+FUNGSI YANG TERSEDIA:
+1. search_activities - Untuk pencarian task/aktivitas berdasarkan nama user, status, proyek, bulan
+2. get_user_list - Untuk daftar semua user/karyawan
+3. analyze_full_data - Untuk analisis kompleks, statistik, perbandingan performa
+4. general_conversation - Untuk percakapan umum, sapaan, bantuan
 
 PANDUAN PEMILIHAN:
-1. search_activities: Untuk pencarian/filter data berdasarkan kriteria spesifik
-2. get_user_list: Untuk daftar user/karyawan
-3. analyze_full_data: Untuk analisis kompleks, statistik, perbandingan
-4. general_conversation: Untuk percakapan umum di luar konteks data
+- Jika user minta data user/task → pilih fungsi yang sesuai
+- Jika user minta analisis/perbandingan → analyze_full_data
+- Jika user hanya sapaan/pertanyaan umum → general_conversation
+- Perhatikan context! Jika user melanjutkan percakapan sebelumnya, gunakan fungsi yang sesuai
 
-Pilih fungsi yang paling sesuai dengan maksud user."""
+JAWAB HANYA: nama_fungsi (tanpa tanda kutip atau penjelasan lain)"""
+
+    # Panggil LLM untuk routing
+    routing_response = await call_llm_api(routing_prompt, user_message)
     
-    llm_router_response = await call_llm_api(router_prompt_system, user_message, tools=routing_tools)
-    
-    # Ekstrak keputusan fungsi dari respons. Format ini mungkin berbeda tergantung API Anda.
-    # Asumsi: response memiliki 'candidates'[0]['content']['parts'][0]['functionCall']
     try:
-        function_call = llm_router_response['candidates'][0]['content']['parts'][0].get('functionCall')
-        chosen_function = function_call['name']
-        arguments = function_call.get('args', {})
-        logger.info(f"Router decided to use function: '{chosen_function}' with args: {arguments}")
-    except (KeyError, IndexError, TypeError):
-        chosen_function = "general_conversation" # Fallback jika LLM tidak memilih fungsi
-        arguments = {}
-        logger.warning("Router failed to choose a function, falling back to general_conversation.")
+        chosen_function = routing_response.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '').strip().lower()
+        logger.info(f"Router chose: '{chosen_function}'")
+    except:
+        chosen_function = "general_conversation"
+        logger.warning("Router failed, using general_conversation")
 
-    ai_response = "Maaf, terjadi kesalahan." # Default response
+    # === LANGKAH 3: EKSEKUSI BERDASARKAN FUNGSI ===
+    ai_response = "Maaf, terjadi kesalahan."
 
-    # === LANGKAH 2: EKSEKUSI BERDASARKAN KEPUTUSAN ROUTER ===
-
-    # --- PATH A: FUNCTION CALLING (untuk pencarian spesifik) ---
-    if chosen_function in AVAILABLE_TOOLS:
-        logger.info("Executing Path A: Function Calling")
-        function_to_call = AVAILABLE_TOOLS[chosen_function]
-        tool_result = function_to_call(**arguments)
-        tool_result_str = json.dumps(tool_result, indent=2, ensure_ascii=False)
+    if "search_activities" in chosen_function:
+        logger.info("Executing search_activities")
         
-        summary_prompt_system = """Anda adalah asisten AI yang ahli dalam menyajikan data dengan jelas dan informatif.
+        # Extract parameters from user message
+        search_prompt = f"""Extract search parameters from user message.
 
-TUGAS ANDA:
-- Analisis data hasil dari database
-- Sajikan informasi dalam format yang mudah dibaca dan dipahami
-- Gunakan tabel HTML untuk data yang terstruktur
-- Berikan konteks dan insight yang berguna
+USER MESSAGE: {user_message}
+CONTEXT: {context_text}
 
-PANDUAN FORMAT:
-- Jika data kosong: "Tidak ditemukan data yang sesuai dengan kriteria pencarian Anda."
-- Jika ada data: Sajikan dalam tabel HTML dengan header yang jelas
-- Tambahkan ringkasan singkat di awal jika relevan
-- Gunakan bahasa yang ramah dan profesional
+Extract these parameters (if mentioned):
+- user_name: nama user/karyawan
+- status: status task (todo, in-progress, done, selesai)
+- task_name: nama proyek/task
+- bulan: bulan (01-12)
 
-Jawab dalam bahasa Indonesia yang natural dan mudah dipahami."""
+Return as JSON only, example: {{"user_name": "andi", "status": "done"}}
+If not found, use null."""
+
+        param_response = await call_llm_api(search_prompt, "")
+        try:
+            import re
+            # Extract JSON from response
+            json_match = re.search(r'\{.*\}', param_response.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '{}'))
+            if json_match:
+                params = json.loads(json_match.group())
+            else:
+                params = {}
+        except:
+            params = {}
         
-        final_response_json = await call_llm_api(summary_prompt_system, f"Data dari database:\n{tool_result_str}\n\nPertanyaan user: '{user_message}'\n\nSajikan data ini dengan baik dan jawab pertanyaan user.")
-        ai_response = final_response_json.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', "Saya mendapat data, tapi gagal merangkumnya.")
+        # Execute search
+        result = search_activities(
+            user_name=params.get('user_name'),
+            status=params.get('status'),
+            task_name=params.get('task_name'),
+            bulan=params.get('bulan')
+        )
+        
+        # Format response
+        if result:
+            response_prompt = f"""Sajikan hasil pencarian dengan format yang baik.
 
-    # --- PATH B: CONTEXT STUFFING (untuk analisis kompleks) ---
-    elif chosen_function == "analyze_full_data":
-        logger.info("Executing Path B: Context Stuffing")
+DATA HASIL PENCARIAN:
+{json.dumps(result, indent=2, ensure_ascii=False)}
+
+PERTANYAAN USER: {user_message}
+CONTEXT: {context_text}
+
+Sajikan dalam format tabel HTML yang rapi dengan kolom: Aktivitas, Proyek, Oleh, Mulai, Selesai, Status.
+Tambahkan ringkasan singkat di awal."""
+        else:
+            response_prompt = f"""User tidak menemukan data yang sesuai.
+
+PERTANYAAN USER: {user_message}
+CONTEXT: {context_text}
+
+Berikan jawaban yang ramah dan sarankan format pencarian yang lebih spesifik."""
+
+        final_response = await call_llm_api(response_prompt, "")
+        ai_response = final_response.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', "Tidak ditemukan data yang sesuai.")
+
+    elif "get_user_list" in chosen_function:
+        logger.info("Executing get_user_list")
+        users = get_user_list()
+        
+        response_prompt = f"""Sajikan daftar user dengan format yang baik.
+
+DAFTAR USER: {json.dumps(users, ensure_ascii=False)}
+
+PERTANYAAN USER: {user_message}
+CONTEXT: {context_text}
+
+Sajikan dalam format tabel HTML dengan kolom: No, Nama User.
+Tambahkan ringkasan jumlah user di awal."""
+
+        final_response = await call_llm_api(response_prompt, "")
+        ai_response = final_response.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', "Berikut daftar user yang tersedia.")
+
+    elif "analyze_full_data" in chosen_function:
+        logger.info("Executing analyze_full_data")
+        
+        # Get all data
         conn = get_db_conn()
         cur = conn.cursor()
         cur.execute("""
@@ -265,47 +308,40 @@ Jawab dalam bahasa Indonesia yang natural dan mudah dipahami."""
         activities = [dict(row) for row in cur.fetchall()]
         conn.close()
         
-        activity_data_text = "\n".join([f"- Aktivitas: {row['activity']}, Proyek: {row['task']}, Oleh: {row['nama']}, Mulai: {row['start_date']}, Selesai: {row['end_date']}, Status: {row['status']}" for row in activities])
-        
-        analysis_prompt_system = f"""Anda adalah analis data AI yang ahli dalam menganalisis dan menyajikan informasi manajemen task dan aktivitas.
+        analysis_prompt = f"""Analisis data dan jawab pertanyaan user dengan insight yang berguna.
 
+DATA LENGKAP:
+{json.dumps(activities, indent=2, ensure_ascii=False)}
+
+PERTANYAAN USER: {user_message}
+CONTEXT: {context_text}
 TANGGAL HARI INI: {datetime.now().strftime('%Y-%m-%d')}
 
-TUGAS ANDA:
-- Analisis data aktivitas dan task secara mendalam
-- Berikan insight yang berguna dan actionable
-- Sajikan perbandingan dan statistik dalam format yang jelas
-- Gunakan tabel HTML untuk data terstruktur
-- Berikan rekomendasi jika relevan
+Lakukan analisis mendalam:
+1. Hitung statistik yang relevan
+2. Bandingkan performa jika diminta
+3. Identifikasi tren dan insight
+4. Sajikan dalam format tabel HTML jika ada data terstruktur
+5. Berikan rekomendasi jika relevan
 
-PANDUAN ANALISIS:
-1. Hitung statistik: total task, task per status, task per user
-2. Analisis performa: user paling produktif, task terlama/tercepat
-3. Identifikasi tren: task per bulan, progress tim
-4. Berikan insight: bottleneck, area improvement, pencapaian
+Jawab dengan bahasa Indonesia yang natural dan informatif."""
 
-FORMAT OUTPUT:
-- Mulai dengan ringkasan eksekutif
-- Sajikan data dalam tabel HTML yang rapi
-- Berikan analisis mendalam
-- Akhiri dengan insight atau rekomendasi
+        final_response = await call_llm_api(analysis_prompt, "")
+        ai_response = final_response.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', "Saya mendapat data untuk analisis, tapi gagal memprosesnya.")
 
-DATA LENGKAP DARI DATABASE:
-{activity_data_text}
-
-Analisis data ini dengan teliti dan berikan jawaban yang informatif dan berguna."""
+    else:  # general_conversation
+        logger.info("Executing general_conversation")
         
-        final_response_json = await call_llm_api(analysis_prompt_system, user_message)
-        ai_response = final_response_json.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', "Saya mendapat data untuk analisis, tapi gagal memprosesnya.")
-        
-    # --- PATH C: GENERAL CONVERSATION (untuk obrolan biasa) ---
-    else: # Termasuk chosen_function == "general_conversation" atau fallback
-        logger.info("Executing Path C: General Conversation")
-        general_prompt_system = """Anda adalah asisten AI yang ramah dan membantu untuk sistem manajemen task dan aktivitas.
+        general_prompt = f"""Anda adalah Task Analyst AI yang ramah dan membantu.
+
+CONTEXT PERCAKAPAN SEBELUMNYA:
+{context_text}
+
+PERTANYAAN USER SAAT INI: {user_message}
 
 IDENTITAS ANDA:
 - Nama: Task Analyst AI
-- Peran: Asisten untuk membantu mengelola dan menganalisis data task/aktivitas
+- Peran: Asisten untuk manajemen task dan aktivitas
 - Kepribadian: Ramah, profesional, dan selalu siap membantu
 
 KEMAMPUAN ANDA:
@@ -316,18 +352,21 @@ KEMAMPUAN ANDA:
 
 PANDUAN JAWABAN:
 - Gunakan bahasa Indonesia yang natural dan ramah
-- Berikan jawaban yang informatif dan bermanfaat
-- Jika ditanya tentang kemampuan, jelaskan fitur-fitur yang tersedia
-- Tunjukkan antusiasme untuk membantu
+- Perhatikan context percakapan sebelumnya
+- Jika user menanyakan tentang data, arahkan ke format yang tepat
+- JANGAN bilang "saya perlu akses data"
+- Berikan contoh pertanyaan yang tepat jika diperlukan
 
-Contoh pertanyaan yang bisa Anda bantu:
-- "Cari task yang dikerjakan Budi"
+Contoh format pertanyaan yang bisa Anda sarankan:
+- "Cari task yang dikerjakan [nama]"
+- "Sebutkan semua user"
 - "Siapa yang paling produktif?"
 - "Tampilkan statistik pekerjaan bulan ini"
-- "Halo, apa kabar?"""
-        
-        final_response_json = await call_llm_api(general_prompt_system, user_message)
-        ai_response = final_response_json.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', "Maaf, saya tidak bisa menjawab itu saat ini.")
+
+Jawab dengan ramah dan bermanfaat."""
+
+        final_response = await call_llm_api(general_prompt, "")
+        ai_response = final_response.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', "Maaf, saya tidak bisa menjawab itu saat ini.")
 
     # Simpan histori dan kirim respons
     save_history(session_id, user_message, ai_response)
