@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+y<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -7,409 +7,159 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        * { box-sizing: border-box; }
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            margin: 0; 
-            min-height: 100vh;
-            padding: 20px;
-        }
+        body { font-family: Arial, sans-serif; background: #f7f7f7; margin: 0; }
         #app { 
-            max-width: 1000px; 
-            margin: 0 auto; 
-            background: #fff; 
-            border-radius: 20px; 
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1); 
-            overflow: hidden;
-            height: calc(100vh - 40px);
-            display: flex;
-            flex-direction: column;
-        }
-        .header {
-            background: linear-gradient(135deg, #00796b, #004d40);
-            color: white;
-            padding: 20px 30px;
-            text-align: center;
-        }
-        .header h2 {
-            margin: 0;
-            font-size: 24px;
-            font-weight: 600;
-        }
-        .header p {
-            margin: 5px 0 0 0;
-            opacity: 0.9;
-            font-size: 14px;
-        }
-        .chat-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
+          max-width: 900px; 
+          margin: 60px auto 0 auto; 
+          background: #fff; 
+          border-radius: 12px; 
+          box-shadow: 0 4px 24px #0002; 
+          padding: 40px 32px 60px 32px; 
+          min-height: 80vh;
         }
         .chat-history { 
-            flex: 1;
-            overflow-y: auto; 
-            padding: 20px 30px;
-            scroll-behavior: smooth;
-            background: #fafafa;
+          max-height: 60vh; 
+          min-height: 350px; 
+          overflow-y: auto; 
+          margin-bottom: 24px; 
+          padding-bottom: 60px; 
+          scroll-behavior: smooth;
         }
-        .msg { 
-            margin-bottom: 20px; 
-            animation: fadeIn 0.3s ease-in;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        .msg { margin-bottom: 20px; }
         .msg.user { text-align: right; }
         .msg.ai { text-align: left; }
         .msg .bubble { 
-            display: inline-block; 
-            padding: 15px 20px; 
-            border-radius: 20px; 
-            max-width: 85%; 
-            font-size: 16px;
-            line-height: 1.5;
-            word-wrap: break-word;
+          display: inline-block; 
+          padding: 16px 22px; 
+          border-radius: 18px; 
+          max-width: 90%; 
+          font-size: 18px;
         }
-        .msg.user .bubble { 
-            background: linear-gradient(135deg, #00796b, #004d40); 
-            color: white;
-            border-bottom-right-radius: 5px;
-        }
-        .msg.ai .bubble { 
-            background: white; 
-            color: #333;
-            border: 1px solid #e0e0e0;
-            border-bottom-left-radius: 5px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
+        .msg.user .bubble { background: #e0f7fa; color: #00796b; }
+        .msg.ai .bubble { background: #ececec; color: #333; }
         .msg .bubble pre, .msg .bubble code {
-            background: #f5f5f5;
-            font-family: 'Fira Code', 'Consolas', 'Menlo', monospace;
-            font-size: 14px;
-            border-radius: 8px;
-            padding: 10px 15px;
-            overflow-x: auto;
-            display: block;
-            white-space: pre-wrap;
-            border: 1px solid #e0e0e0;
+          background: #f4f4f4;
+          font-family: 'Fira Mono', 'Consolas', 'Menlo', monospace;
+          font-size: 15px;
+          border-radius: 8px;
+          padding: 8px 12px;
+          overflow-x: auto;
+          display: block;
+          white-space: pre-wrap;
         }
         .msg .bubble table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 10px 0;
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          border-collapse: collapse;
+          width: 100%;
+          margin: 8px 0;
         }
         .msg .bubble th, .msg .bubble td {
-            border: 1px solid #e0e0e0;
-            padding: 12px 15px;
-            text-align: left;
-            word-break: break-word;
+          border: 1px solid #bbb;
+          padding: 8px 10px;
+          text-align: left;
+          word-break: break-word;
         }
         .msg .bubble th {
-            background: linear-gradient(135deg, #00796b, #004d40);
-            color: white;
-            font-weight: 600;
+          background: #e0f7fa;
         }
         .msg .bubble tr:nth-child(even) {
-            background: #f8f9fa;
+          background: #f7f7f7;
         }
-        .msg .bubble tr:hover {
-            background: #e3f2fd;
+        @media (max-width: 600px) {
+          #app { padding: 8px; }
+          .msg .bubble { max-width: 98%; font-size: 15px; }
+          .chat-history { max-height: 60vh; min-height: 200px; }
+          .msg .bubble table, .msg .bubble th, .msg .bubble td { font-size: 13px; }
         }
-        .typing-indicator {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            padding: 15px 20px;
-            background: white;
-            border-radius: 20px;
-            border: 1px solid #e0e0e0;
-            border-bottom-left-radius: 5px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            max-width: 85%;
-            display: inline-block;
+        .input-row { display: flex; gap: 8px; }
+        input[type=text] { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc; }
+        button { padding: 10px 18px; border-radius: 8px; border: none; background: #00796b; color: #fff; cursor: pointer; }
+        button:disabled { background: #b2dfdb; cursor: not-allowed; }
+        ul {
+          padding-left: 20px;
         }
-        .typing-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #00796b;
-            animation: typing 1.4s infinite ease-in-out;
+        li {
+          margin-bottom: 8px;
         }
-        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
-        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
-        @keyframes typing {
-            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
-            40% { transform: scale(1); opacity: 1; }
+        table {
+          border-collapse: collapse;
+          width: 100%;
         }
-        .input-container {
-            padding: 20px 30px;
-            background: white;
-            border-top: 1px solid #e0e0e0;
+        th, td {
+          border: 1px solid #ddd;
+          padding: 8px;
         }
-        .input-row { 
-            display: flex; 
-            gap: 12px; 
-            align-items: center;
-        }
-        input[type=text] { 
-            flex: 1; 
-            padding: 15px 20px; 
-            border-radius: 25px; 
-            border: 2px solid #e0e0e0; 
-            font-size: 16px;
-            outline: none;
-            transition: border-color 0.3s ease;
-        }
-        input[type=text]:focus {
-            border-color: #00796b;
-        }
-        input[type=text]:disabled {
-            background: #f5f5f5;
-            cursor: not-allowed;
-        }
-        button { 
-            padding: 15px 25px; 
-            border-radius: 25px; 
-            border: none; 
-            background: linear-gradient(135deg, #00796b, #004d40); 
-            color: white; 
-            cursor: pointer; 
-            font-size: 16px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            min-width: 100px;
-        }
-        button:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,150,136,0.3);
-        }
-        button:disabled { 
-            background: #b2dfdb; 
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        .error-message {
-            background: #ffebee;
-            color: #c62828;
-            padding: 10px 15px;
-            border-radius: 8px;
-            margin: 10px 0;
-            border-left: 4px solid #c62828;
-        }
-        .success-message {
-            background: #e8f5e8;
-            color: #2e7d32;
-            padding: 10px 15px;
-            border-radius: 8px;
-            margin: 10px 0;
-            border-left: 4px solid #2e7d32;
-        }
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: #666;
-        }
-        .empty-state h3 {
-            margin: 0 0 10px 0;
-            color: #00796b;
-        }
-        .empty-state p {
-            margin: 0;
-            line-height: 1.6;
-        }
-        /* Tambahan untuk markdown */
-        .msg .bubble p {
-            margin: 10px 0 10px 0;
-            line-height: 1.7;
-        }
-        .msg .bubble ul, .msg .bubble ol {
-            margin: 10px 0 10px 20px;
-            padding-left: 20px;
-        }
-        .msg .bubble li {
-            margin-bottom: 6px;
-        }
-        .msg .bubble strong, .msg .bubble b {
-            font-weight: bold;
-        }
-        .msg .bubble em, .msg .bubble i {
-            font-style: italic;
-        }
-        .msg .bubble h1, .msg .bubble h2, .msg .bubble h3 {
-            margin: 18px 0 10px 0;
-            font-weight: 600;
-        }
-        /* Hilangkan background untuk code block analisis (bukan kode program) */
-        .msg .bubble pre:has(> code:only-child) {
-            background: none;
-            border: none;
-            padding: 0;
-        }
-        .msg .bubble code:only-child {
-            background: none;
-            border: none;
-            padding: 0;
-        }
-        @media (max-width: 768px) {
-            body { padding: 10px; }
-            #app { height: calc(100vh - 20px); }
-            .header { padding: 15px 20px; }
-            .header h2 { font-size: 20px; }
-            .chat-history { padding: 15px 20px; }
-            .input-container { padding: 15px 20px; }
-            .msg .bubble { max-width: 95%; font-size: 15px; }
-            .msg .bubble table, .msg .bubble th, .msg .bubble td { font-size: 13px; }
-        }
+        .msg .bubble p { margin: 10px 0; line-height: 1.7; }
+        .msg .bubble ul, .msg .bubble ol { margin: 10px 0 10px 20px; padding-left: 20px; }
+        .msg .bubble li { margin-bottom: 6px; }
+        .msg .bubble strong, .msg .bubble b { font-weight: bold; }
+        .msg .bubble em, .msg .bubble i { font-style: italic; }
+        .msg .bubble h1, .msg .bubble h2, .msg .bubble h3 { margin: 18px 0 10px 0; font-weight: 600; }
+        .msg .bubble pre:has(> code:only-child) { background: none; border: none; padding: 0; }
+        .msg .bubble code:only-child { background: none; border: none; padding: 0; }
     </style>
 </head>
 <body>
 <div id="app">
-    <div class="header">
-        <h2>🤖 AI Task Analyst</h2>
-        <p>Asisten cerdas untuk manajemen task dan analisis data</p>
-    </div>
-    
-    <div class="chat-container">
-        <div class="chat-history" ref="chatHistoryDiv">
-            <div v-if="chat.length === 0" class="empty-state">
-                <h3>👋 Selamat Datang!</h3>
-                <p>Saya adalah AI Task Analyst yang siap membantu Anda menganalisis dan mengelola data task/aktivitas.</p>
-                <p><strong>Contoh pertanyaan:</strong></p>
-                <ul style="text-align: left; display: inline-block;">
-                    <li>"Sebutkan semua user"</li>
-                    <li>"Cari task yang dikerjakan Andi"</li>
-                    <li>"Siapa yang paling produktif?"</li>
-                    <li>"Tampilkan statistik pekerjaan bulan ini"</li>
-                </ul>
+    <h2>AI Task Analyst</h2>
+    <div class="chat-history" ref="chatHistoryDiv">
+        <div v-for="(item, idx) in chat" :key="idx">
+            <div class="msg user" v-if="item[0]">
+                <div class="bubble">{{ item[0] }}</div>
             </div>
-            
-            <div v-for="(item, idx) in chat" :key="idx">
-                <div class="msg user" v-if="item[0]">
-                    <div class="bubble">{{ item[0] }}</div>
-                </div>
-                <div class="msg ai" v-if="item[1]">
-                    <div class="bubble" v-html="renderAI(item[1])"></div>
-                </div>
-            </div>
-            
-            <div v-if="loading" class="msg ai">
-                <div class="typing-indicator">
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                    <span style="margin-left: 10px; color: #666;">AI sedang berpikir...</span>
-                </div>
+            <div class="msg ai" v-if="item[1]">
+                <div class="bubble" v-html="renderAI(item[1])"></div>
             </div>
         </div>
-        
-        <div class="input-container">
-            <div v-if="errorMessage" class="error-message">
-                {{ errorMessage }}
-            </div>
-            <div v-if="successMessage" class="success-message">
-                {{ successMessage }}
-            </div>
-            
-            <form class="input-row" @submit.prevent="sendMessage">
-                <input 
-                    type="text" 
-                    v-model="message" 
-                    placeholder="Tulis pertanyaan Anda..." 
-                    :disabled="loading" 
-                    autocomplete="off"
-                    @keydown.enter="sendMessage"
-                />
-                <button :disabled="!message.trim() || loading">
-                    {{ loading ? 'Mengirim...' : 'Kirim' }}
-                </button>
-            </form>
-        </div>
+        <div v-if="loading" class="msg ai"><div class="bubble">AI sedang mengetik...</div></div>
     </div>
+    <form class="input-row" @submit.prevent="sendMessage">
+        <input type="text" v-model="message" placeholder="Tulis pertanyaan..." :disabled="loading" autocomplete="off" />
+        <button :disabled="!message || loading">Kirim</button>
+    </form>
 </div>
-
 <script>
 const randomSession = () => 'sess-' + Math.random().toString(36).slice(2, 12);
-const { createApp, ref, onMounted, watch, nextTick } = Vue;
-
+const { createApp, ref, onMounted, watch } = Vue;
 createApp({
     setup() {
         const message = ref("");
         const chat = ref([]);
         const loading = ref(false);
-        const errorMessage = ref("");
-        const successMessage = ref("");
         const session_id = localStorage.getItem('session_id') || randomSession();
         localStorage.setItem('session_id', session_id);
 
         const chatHistoryDiv = ref(null);
 
-        const showError = (msg) => {
-            errorMessage.value = msg;
-            setTimeout(() => errorMessage.value = "", 5000);
-        };
-
-        const showSuccess = (msg) => {
-            successMessage.value = msg;
-            setTimeout(() => successMessage.value = "", 3000);
-        };
-
         const fetchHistory = async () => {
             try {
                 const res = await fetch(`/history/${session_id}`);
-                if (!res.ok) throw new Error('Gagal mengambil history');
                 const data = await res.json();
                 chat.value = data.history || [];
-            } catch (error) {
-                console.error('Error fetching history:', error);
-                showError('Gagal memuat riwayat chat');
-            }
+            } catch {}
         };
 
         const sendMessage = async () => {
-            if (!message.value.trim() || loading.value) return;
-            
+            if (!message.value) return;
             loading.value = true;
-            errorMessage.value = "";
-            const userMsg = message.value.trim();
+            const userMsg = message.value;
             chat.value.push([userMsg, ""]);
             const idx = chat.value.length - 1;
             message.value = "";
-            
             try {
                 const res = await fetch('/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: userMsg, session_id })
                 });
-                
-                if (!res.ok) {
-                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-                }
-                
                 const data = await res.json();
                 chat.value[idx][1] = data.answer || 'Tidak ada jawaban dari AI.';
-                showSuccess('Pesan berhasil dikirim');
-                
-            } catch (error) {
-                console.error('Error sending message:', error);
-                chat.value[idx][1] = 'Maaf, terjadi kesalahan saat menghubungi server. Silakan coba lagi.';
-                showError('Gagal mengirim pesan');
-            } finally {
-                loading.value = false;
+            } catch {
+                chat.value[idx][1] = 'Gagal menghubungi server.';
             }
+            loading.value = false;
         };
 
-        const scrollToBottom = async () => {
-            await nextTick();
+        const scrollToBottom = () => {
             if (chatHistoryDiv.value) {
                 chatHistoryDiv.value.scrollTo({
                     top: chatHistoryDiv.value.scrollHeight,
@@ -436,16 +186,7 @@ createApp({
             setTimeout(scrollToBottom, 100);
         }, { deep: true });
 
-        return { 
-            message, 
-            chat, 
-            loading, 
-            errorMessage,
-            successMessage,
-            sendMessage, 
-            chatHistoryDiv, 
-            renderAI 
-        };
+        return { message, chat, loading, sendMessage, chatHistoryDiv, renderAI };
     }
 }).mount('#app');
 </script>
