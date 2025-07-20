@@ -1,101 +1,101 @@
-# AI Task Analyst Web
+# 🚀 AI Task Analyst Web
 
-Web AI cerdas untuk menganalisis dan mengelola data tugas/proyek dengan kemampuan function calling dan analisis data yang advanced. Chat AI yang mengingat percakapan sebelumnya dan memberikan insight yang berguna.
+A smart AI-powered web app for analyzing and managing project/task data, featuring advanced function calling and data analysis. Enjoy an AI chat that remembers previous conversations and delivers actionable insights.
 
 ---
 
-## **Contoh Diagram Flow**
+## 📊 **Flow Diagram Example**
 
 ![Diagram Flow](diagram-flow.png)
 
 ---
 
-## **Fitur Utama**
-- 🤖 **AI Chat Cerdas** dengan session-based memory
-- 🔍 **Function Calling** untuk pencarian dan filter data yang presisi
-- 📊 **Analisis Data Kompleks** dengan statistik dan insight
-- 💬 **Conversation Routing** otomatis berdasarkan jenis pertanyaan
-- 📱 **Frontend Responsive** dengan Vue.js
-- 📝 **Logging Lengkap** untuk monitoring dan debugging
-- 🎯 **Prompt Engineering** yang dioptimalkan untuk hasil terbaik
+## 🌟 **Key Features**
+- 🤖 **Intelligent AI Chat** with session-based memory
+- 🔍 **Function Calling** for precise data search and filtering
+- 📈 **Advanced Data Analysis** with statistics and insights
+- 💬 **Automatic Conversation Routing** based on question type
+- 📱 **Responsive Frontend** built with Vue.js
+- 📝 **Comprehensive Logging** for monitoring and debugging
+- 🎯 **Optimized Prompt Engineering** for best results
 
 ---
 
-## **Kemampuan AI**
+## 🧠 **AI Capabilities**
 
-### **1. Pencarian & Filter Data**
-- Mencari task berdasarkan nama user/karyawan
-- Filter berdasarkan status (todo, in-progress, done)
-- Pencarian berdasarkan nama proyek/task
-- Filter berdasarkan bulan tertentu
+### 1. **Data Search & Filtering**
+- Search tasks by user/employee name
+- Filter by status (todo, in-progress, done)
+- Search by project/task name
+- Filter by specific month
 
-### **2. Analisis Kompleks**
-- Statistik performa tim dan individu
-- Perbandingan produktivitas antar user
-- Analisis tren pekerjaan per bulan
-- Identifikasi bottleneck dan area improvement
-- Laporan eksekutif dengan insight actionable
+### 2. **Complex Analysis**
+- Team and individual performance statistics
+- Productivity comparison between users
+- Monthly work trend analysis
+- Identify bottlenecks and improvement areas
+- Executive reports with actionable insights
 
-### **3. Manajemen User**
-- Daftar lengkap anggota tim
-- Informasi detail user dan task assignment
+### 3. **User Management**
+- Complete team member list
+- Detailed user and task assignment info
 
-### **4. Conversational AI**
-- Percakapan natural dalam bahasa Indonesia
-- Penjelasan kemampuan dan fitur sistem
-- Bantuan umum dan panduan penggunaan
+### 4. **Conversational AI**
+- Natural conversation in English (and Indonesian)
+- Explains system features and capabilities
+- General help and usage guidance
 
 ---
 
-## **Struktur Project**
-```
+## 🗂️ **Project Structure**
+```text
 ai-task-analyst/
 │
-├── app.py                # Backend FastAPI dengan function calling
+├── app.py                # FastAPI backend with function calling
 ├── requirements.txt      # Python dependencies
-├── .env                  # API key LLM
+├── .env                  # LLM API key
 ├── database_task.sql     # SQL schema + sample data
 ├── static/
-│   └── index.html        # Frontend chat responsive
+│   └── index.html        # Responsive chat frontend
 ├── tasks.db              # (auto-generated) SQLite DB
-└── app.log               # Log file untuk monitoring
+└── app.log               # Log file for monitoring
 ```
 
 ---
 
-## **Arsitektur Sistem**
+## 🏗️ **System Architecture**
 
-### **Routing Intelligence**
-Sistem menggunakan AI router yang cerdas untuk memilih fungsi yang tepat:
+### 🤖 **Routing Intelligence**
+The system uses a smart AI router to select the right function:
 
-1. **search_activities** - Pencarian dan filter data
-2. **get_user_list** - Daftar user/karyawan  
-3. **analyze_full_data** - Analisis kompleks dan statistik
-4. **general_conversation** - Percakapan umum
+1. **search_activities** - Search and filter data
+2. **get_user_list** - List users/employees
+3. **analyze_full_data** - Complex analysis and statistics
+4. **general_conversation** - General chat
 
-### **Function Calling**
-- **search_activities(user_name, status, task_name, bulan)**
-- **get_user_list()**
-- Context stuffing untuk analisis kompleks
-- General conversation untuk pertanyaan umum
+### 🔗 **Function Calling**
+- `search_activities(user_name, status, task_name, month)`
+- `get_user_list()`
+- Context stuffing for complex analysis
+- General conversation for common questions
 
 ---
 
-## **Instalasi & Setup**
+## ⚡ **Installation & Setup**
 
-### 1. **Clone repo & masuk ke folder**
+### 1. **Clone the repo & enter the folder**
 ```bash
 git clone <repo-url>
 cd ai-task-analyst
 ```
 
-### 2. **Buat & aktifkan environment (opsional, tapi disarankan)**
+### 2. **Create & activate environment (optional but recommended)**
 ```bash
-# Contoh dengan conda
+# Using conda
 conda create -n ai-task python=3.10
 conda activate ai-task
 
-# Atau dengan venv
+# Or with venv
 python -m venv venv
 venv\Scripts\activate  # Windows
 source venv/bin/activate  # Linux/Mac
@@ -106,140 +106,140 @@ source venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 ```
 
-### 4. **Siapkan file `.env`**
-Buat file `.env` di root, isi:
+### 4. **Prepare the `.env` file**
+Create a `.env` file in the root directory:
 ```env
 LLM_API_KEY=your_google_ai_studio_api_key
 LLM_API_URL=https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=your_google_ai_studio_api_key
 ```
-Ganti dengan API key dan endpoint sesuai LLM yang digunakan.
+Replace with your actual API key and endpoint as needed.
 
-### 5. **Pastikan file `database_task.sql` berisi CREATE TABLE + INSERT**
-Sudah ada di repo, tapi pastikan bagian atas file seperti:
+### 5. **Ensure `database_task.sql` contains CREATE TABLE + INSERT**
+Already included in the repo, but make sure the top of the file looks like:
 ```sql
 CREATE TABLE IF NOT EXISTS user (...);
 CREATE TABLE IF NOT EXISTS task (...);
 CREATE TABLE IF NOT EXISTS activity (...);
--- lalu INSERT ...
+-- then INSERT ...
 ```
 
 ---
 
-## **Menjalankan Aplikasi**
+## 🚦 **Running the Application**
 
-### 1. **Jalankan backend**
+### 1. **Start the backend**
 ```bash
 uvicorn app:app --reload
 ```
-- Server akan otomatis membuat file `tasks.db` dari `database_task.sql` jika belum ada.
-- Log akan ditulis ke `app.log` untuk monitoring.
+- The server will auto-create `tasks.db` from `database_task.sql` if it doesn't exist.
+- Logs are written to `app.log` for monitoring.
 
-### 2. **Akses frontend**
-Buka di browser:
+### 2. **Access the frontend**
+Open in your browser:
 ```
 http://127.0.0.1:8000/static/index.html
 ```
 
 ---
 
-## **Contoh Penggunaan**
+## 💡 **Usage Examples**
 
-### **Pencarian Data**
-- "Cari task yang dikerjakan Budi"
-- "Tampilkan pekerjaan dengan status done"
-- "Aktivitas bulan Januari"
-- "Task proyek website"
+### **Data Search**
+- "Find tasks assigned to Budi"
+- "Show tasks with status done"
+- "Activities in January"
+- "Website project tasks"
 
-### **Analisis Kompleks**
-- "Siapa yang paling produktif?"
-- "Berapa total task selesai bulan ini?"
-- "Bandingkan performa tim"
-- "Buat laporan bulanan"
-- "Statistik pekerjaan"
+### **Complex Analysis**
+- "Who is the most productive?"
+- "How many tasks were completed this month?"
+- "Compare team performance"
+- "Generate monthly report"
+- "Work statistics"
 
-### **Manajemen User**
-- "Siapa saja anggota tim?"
-- "Tampilkan semua karyawan"
-- "Daftar user"
+### **User Management**
+- "Who are the team members?"
+- "Show all employees"
+- "User list"
 
-### **Percakapan Umum**
-- "Halo, apa kabar?"
-- "Apa saja yang bisa kamu lakukan?"
-- "Terima kasih"
+### **General Conversation**
+- "Hello, how are you?"
+- "What can you do?"
+- "Thank you"
 
 ---
 
-## **Troubleshooting & Error Handling**
+## 🛠️ **Troubleshooting & Error Handling**
 
 ### **Error: `sqlite3.OperationalError: no such table: user`**
-**Penyebab:**
-File `tasks.db` sudah ada, tapi kosong/tidak sesuai schema.
+**Cause:**
+The `tasks.db` file exists but is empty or has the wrong schema.
 
-**Solusi:**
-1. **Hapus file `tasks.db`** di folder project.
-2. **Restart server** (`uvicorn app:app --reload`).
-   - Server akan otomatis membuat ulang database dari `database_task.sql`.
+**Solution:**
+1. **Delete the `tasks.db`** file in the project folder.
+2. **Restart the server** (`uvicorn app:app --reload`).
+   - The server will automatically recreate the database from `database_task.sql`.
 
 ### **Error: `Import "fastapi" could not be resolved`**
-- Pastikan environment sudah aktif.
-- Jalankan: `pip install fastapi uvicorn`
+- Make sure your environment is active.
+- Run: `pip install fastapi uvicorn`
 
 ### **Error: `uvicorn` not found**
-- Jalankan: `pip install uvicorn`
+- Run: `pip install uvicorn`
 
-### **Error: LLM tidak menjawab/muncul error API**
-- Pastikan `.env` sudah benar dan API key aktif.
-- Cek log di `app.log` untuk detail error.
-- Pastikan format API response sesuai dengan yang diharapkan.
+### **Error: LLM not responding/API error**
+- Ensure `.env` is correct and API key is active.
+- Check `app.log` for error details.
+- Make sure the API response format matches expectations.
 
-### **Error: 404 Not Found untuk endpoint**
-- Pastikan menggunakan endpoint `/chat` (bukan `/chat_stream`)
-- Frontend sudah diupdate untuk menggunakan endpoint yang benar.
+### **Error: 404 Not Found for endpoint**
+- Use the `/chat` endpoint (not `/chat_stream`).
+- Make sure the frontend is updated to use the correct endpoint.
 
 ---
 
-## **Fitur Teknis**
+## 🧑‍💻 **Technical Features**
 
 ### **Enhanced Prompts**
-- **Router Prompt**: AI cerdas untuk memilih fungsi yang tepat
-- **Summary Prompt**: Penyajian data yang informatif dan terstruktur
-- **Analysis Prompt**: Analisis mendalam dengan insight actionable
-- **General Prompt**: Percakapan natural dan ramah
+- **Router Prompt:** Smart AI for function selection
+- **Summary Prompt:** Informative and structured data presentation
+- **Analysis Prompt:** Deep analysis with actionable insights
+- **General Prompt:** Friendly, natural conversation
 
 ### **Response Format**
-- Tabel HTML untuk data terstruktur
-- Markdown support untuk formatting
-- Code blocks untuk output teknis
-- Responsive design untuk mobile
+- HTML tables for structured data
+- Markdown support for formatting
+- Code blocks for technical output
+- Responsive design for mobile
 
 ### **Performance**
-- Timeout 45 detik untuk API calls
-- Logging detail untuk monitoring
-- Error handling yang robust
-- Session management yang efisien
+- 45-second timeout for API calls
+- Detailed logging for monitoring
+- Robust error handling
+- Efficient session management
 
 ---
 
-## **Catatan Penggunaan**
-- Semua data diambil dari database SQLite (`tasks.db`).
-- Untuk update data, edit `database_task.sql` lalu hapus `tasks.db` dan restart server.
-- Chat history per session disimpan di database.
-- Log detail tersedia di `app.log` untuk debugging.
+## 📚 **Usage Notes**
+- All data is sourced from the SQLite database (`tasks.db`).
+- To update data, edit `database_task.sql`, delete `tasks.db`, and restart the server.
+- Chat history per session is stored in the database.
+- Detailed logs are available in `app.log` for debugging.
 
 ---
 
-## **Pengembangan Lanjutan**
-- Untuk data besar, bisa batasi data yang dikirim ke LLM.
-- Bisa ganti LLM ke OpenAI, Ollama, dsb, cukup ganti `.env`.
-- Untuk deployment, gunakan server production (misal: `uvicorn app:app --host 0.0.0.0 --port 80`).
-- Bisa tambahkan authentication dan authorization.
-- Implementasi streaming response untuk UX yang lebih baik.
+## 🚀 **Further Development**
+- For large datasets, limit data sent to the LLM.
+- Switch LLM to OpenAI, Ollama, etc. by updating `.env`.
+- For deployment, use a production server (e.g., `uvicorn app:app --host 0.0.0.0 --port 80`).
+- Add authentication and authorization as needed.
+- Implement streaming responses for better UX.
 
 ---
 
-## **Lisensi**
-Bebas digunakan untuk pembelajaran dan pengembangan.
+## 📝 **License**
+Free to use for learning and development purposes.
 
 ---
 
-**Jika ada error lain, cek log `app.log` atau tanyakan di sini!**
+**If you encounter other errors, check `app.log` or ask here!**

@@ -1,11 +1,10 @@
-y<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Task Analyst Chat</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; background: #f7f7f7; margin: 0; }
         #app { 
@@ -88,14 +87,6 @@ y<!DOCTYPE html>
           border: 1px solid #ddd;
           padding: 8px;
         }
-        .msg .bubble p { margin: 10px 0; line-height: 1.7; }
-        .msg .bubble ul, .msg .bubble ol { margin: 10px 0 10px 20px; padding-left: 20px; }
-        .msg .bubble li { margin-bottom: 6px; }
-        .msg .bubble strong, .msg .bubble b { font-weight: bold; }
-        .msg .bubble em, .msg .bubble i { font-style: italic; }
-        .msg .bubble h1, .msg .bubble h2, .msg .bubble h3 { margin: 18px 0 10px 0; font-weight: 600; }
-        .msg .bubble pre:has(> code:only-child) { background: none; border: none; padding: 0; }
-        .msg .bubble code:only-child { background: none; border: none; padding: 0; }
     </style>
 </head>
 <body>
@@ -152,7 +143,8 @@ createApp({
                     body: JSON.stringify({ message: userMsg, session_id })
                 });
                 const data = await res.json();
-                chat.value[idx][1] = data.answer || 'Tidak ada jawaban dari AI.';
+                const aiAnswer = data.answer;
+                chat.value[idx][1] = aiAnswer;
             } catch {
                 chat.value[idx][1] = 'Gagal menghubungi server.';
             }
@@ -169,14 +161,32 @@ createApp({
         };
 
         const renderAI = (text) => {
-            // Jika sudah HTML tabel, langsung tampilkan
+            // Jika sudah HTML, langsung tampilkan
             if (/<table|<ul|<ol|<br|<pre|<code|<b|<strong|<em|<i|<u|<hr|<h[1-6]/i.test(text)) return text;
-            // Markdown ke HTML pakai marked.js
-            try {
-                return marked.parse(text);
-            } catch {
-                return text.replace(/\n/g, '<br>');
+            // Markdown table ke HTML table
+            if (/\|.*\|/.test(text)) {
+                // Markdown table to HTML
+                const lines = text.trim().split(/\n|<br\s*\/?/i);
+                const tableLines = lines.filter(l => l.includes('|'));
+                if (tableLines.length >= 2) {
+                    let html = '<table><tbody>';
+                    for (let i = 0; i < tableLines.length; i++) {
+                        let row = tableLines[i].trim();
+                        if (!row) continue;
+                        let cells = row.split('|').map(c => c.trim()).filter(Boolean);
+                        if (i === 0) html += '<tr>' + cells.map(c => `<th>${c}</th>`).join('') + '</tr>';
+                        else html += '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
+                    }
+                    html += '</tbody></table>';
+                    return html;
+                }
             }
+            // Markdown code block
+            if (/```[\s\S]*?```/.test(text)) {
+                return text.replace(/```([a-zA-Z]*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+            }
+            // Baris baru ke <br>
+            return text.replace(/\n/g, '<br>');
         };
 
         onMounted(fetchHistory);

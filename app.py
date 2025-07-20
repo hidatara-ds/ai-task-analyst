@@ -11,6 +11,7 @@ import json
 from fastapi.staticfiles import StaticFiles
 from datetime import datetime
 from typing import Optional, List, Dict, Any
+import re
 
 # --- Konfigurasi dan Inisialisasi (Sama seperti sebelumnya) ---
 load_dotenv()
@@ -237,7 +238,6 @@ If not found, use null."""
 
         param_response = await call_llm_api(search_prompt, "")
         try:
-            import re
             # Extract JSON from response
             json_match = re.search(r'\{.*\}', param_response.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '{}'))
             if json_match:
@@ -376,9 +376,26 @@ Jawab dengan ramah dan bermanfaat."""
     logger.info(f"[LATENCY] {time.time() - t0:.2f}s")
     
     updated_history = get_history(session_id)
+    ai_response = clean_ai_response(ai_response)
     return JSONResponse({'answer': ai_response, 'history': updated_history})
 
 @app.get('/history/{session_id}')
 def history(session_id: str):
     logger.info(f"[HISTORY] session={session_id}")
     return JSONResponse({'history': get_history(session_id)})
+
+def clean_ai_response(ai_response):
+    # Hilangkan blok kode markdown ```html ... ```
+    code_block = re.search(r"```html(.*?)```", ai_response, re.DOTALL)
+    if code_block:
+        return code_block.group(1).strip()
+    # Hilangkan blok kode markdown ``` ... ```
+    code_block = re.search(r"```(.*?)```", ai_response, re.DOTALL)
+    if code_block:
+        return code_block.group(1).strip()
+    # Remove lines with only dashes (ASCII table artifacts)
+    ai_response = re.sub(r'<tr>.*-.*</tr>', '', ai_response)
+    ai_response = re.sub(r'-{3,}', '', ai_response)
+    # Remove lines with only dashes in plain text
+    ai_response = re.sub(r'^-+$', '', ai_response, flags=re.MULTILINE)
+    return ai_response.strip()
