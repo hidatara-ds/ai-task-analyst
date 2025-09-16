@@ -12,10 +12,12 @@ from fastapi.staticfiles import StaticFiles
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 import re
+import asyncio
 
-# --- Konfigurasi dan Inisialisasi (Sama seperti sebelumnya) ---
-load_dotenv()
+load_dotenv(override=True)
 LLM_API_URL = os.getenv('LLM_API_URL')
+OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'http://127.0.0.1:11434')
+OLLAMA_MODEL = os.getenv('OLLAMA_MODEL')
 DB_FILE = 'tasks.db'
 SQL_INIT_FILE = 'database_task.sql'
 
@@ -29,6 +31,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+_ollama_ready_checked = False
+_ollama_model_ready = False
 
 def init_db():
     if not os.path.exists(DB_FILE):
@@ -134,16 +139,107 @@ AVAILABLE_TOOLS = {
 
 # --- Panggilan LLM yang disederhanakan ---
 async def call_llm_api(system_prompt: str, user_prompt: str, tools: Optional[List[Dict]] = None) -> Dict[str, Any]:
-    """Fungsi generik untuk memanggil API LLM."""
-    # Di sini, Anda akan menggunakan format yang dibutuhkan oleh API LLM Anda
-    # Contoh ini menggunakan format umum seperti Gemini API
+    """Fungsi generik untuk memanggil API LLM.
+
+    Prefer lokal Ollama jika tersedia dan model siap. Jika tidak, fallback ke LLM_API_URL.
+    """
+    async def _is_ollama_running(client: httpx.AsyncClient) -> bool:
+        try:
+            url = f"{OLLAMA_HOST}/api/tags"
+            r = await client.get(url)
+            return r.status_code == 200
+        except Exception:
+            return False
+
+    async def _is_model_available(client: httpx.AsyncClient, model_name: str) -> bool:
+        try:
+            url = f"{OLLAMA_HOST}/api/tags"
+            r = await client.get(url)
+            if r.status_code != 200:
+                return False
+            data = r.json() or {}
+            models = data.get('models', []) or []
+            return any((m.get('name') == model_name or m.get('model') == model_name) for m in models)
+        except Exception:
+            return False
+
+    async def _pull_model_if_needed(client: httpx.AsyncClient, model_name: str, timeout_seconds: int = 120) -> bool:
+        if await _is_model_available(client, model_name):
+            return True
+        try:
+            logger.info(f"Ollama: pulling model '{model_name}' ...")
+            url = f"{OLLAMA_HOST}/api/pull"
+            # Start pull (streamed on server). We don't consume stream, we poll tags.
+            await client.post(url, json={"name": model_name}, timeout=timeout_seconds)
+        except Exception as e:
+            logger.warning(f"Ollama pull start failed: {e}")
+        # Poll until available or timeout
+        t_start = time.time()
+        while time.time() - t_start < timeout_seconds:
+            if await _is_model_available(client, model_name):
+                logger.info(f"Ollama: model '{model_name}' is ready")
+                return True
+            await httpx.AsyncClient().aclose()  # no-op to satisfy linter for await in loop
+            await asyncio.sleep(2)
+        logger.warning(f"Ollama: model '{model_name}' not ready after {timeout_seconds}s")
+        return False
+
+    async def _call_ollama(client: httpx.AsyncClient, system_text: str, user_text: str) -> Optional[Dict[str, Any]]:
+        try:
+            if not await _is_ollama_running(client):
+                return None
+            if not await _pull_model_if_needed(client, OLLAMA_MODEL):
+                return None
+            url = f"{OLLAMA_HOST}/api/chat"
+            payload = {
+                "model": OLLAMA_MODEL,
+                "messages": [
+                    {"role": "system", "content": system_text or ""},
+                    {"role": "user", "content": user_text or ""},
+                ],
+                "stream": False
+            }
+            r = await client.post(url, json=payload)
+            r.raise_for_status()
+            data = r.json()
+            # Normalisasi ke format serupa yang digunakan di bawah (gemini-like)
+            message = (data or {}).get('message', {})
+            content_text = message.get('content', '') if isinstance(message, dict) else ''
+            return {
+                'candidates': [
+                    {
+                        'content': {
+                            'parts': [
+                                {'text': content_text}
+                            ]
+                        }
+                    }
+                ]
+            }
+        except Exception as e:
+            logger.warning(f"Ollama call failed: {e}")
+            return None
+
+    # Try Ollama first
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            ollama_result = await _call_ollama(client, system_prompt, user_prompt)
+            if ollama_result is not None:
+                logger.info(f"LLM mode: ollama ({OLLAMA_MODEL})")
+                return ollama_result
+    except Exception as e:
+        logger.warning(f"Ollama path error: {e}")
+
+    # Fallback to remote LLM if configured
+    if not LLM_API_URL:
+        logger.error("LLM_API_URL tidak diset dan Ollama tidak tersedia.")
+        return {"error": "Maaf, AI lokal tidak tersedia dan konfigurasi remote tidak diset."}
+
     full_prompt = f"{system_prompt}\n\nUser: {user_prompt}\nAI:"
     payload = {
         "contents": [{"parts": [{"text": full_prompt}]}]
     }
-    # Jika ada tools, tambahkan ke payload
     if tools:
-        # Sesuaikan format ini dengan API Anda (misal: Gemini, OpenAI)
         payload["tools"] = [{"function_declarations": tools}]
 
     headers = {'Content-Type': 'application/json'}
@@ -151,9 +247,10 @@ async def call_llm_api(system_prompt: str, user_prompt: str, tools: Optional[Lis
         async with httpx.AsyncClient(timeout=45.0) as client:
             resp = await client.post(LLM_API_URL, headers=headers, json=payload)
             resp.raise_for_status()
+            logger.info("LLM mode: remote LLM_API_URL")
             return resp.json()
     except Exception as e:
-        logger.error(f"LLM API error: {e}")
+        logger.error(f"Remote LLM API error: {e}")
         return {"error": "Maaf, terjadi kesalahan pada AI."}
 
 # --- Endpoint Chat dengan Logika Hibrida ---
