@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  ai-task-analyst:
+    build: .
+    container_name: ai-task-analyst-app
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount database file for persistence
+      - ./tasks.db:/app/tasks.db
+      # Mount logs directory
+      - ./logs:/app/logs
+      # Mount .env file for environment variables
+      - ./.env:/app/.env
+    environment:
+      - PYTHONPATH=/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/static/index.html"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - ai-task-network
+
+  # Optional: Add a reverse proxy (nginx) for production
+  nginx:
+    image: nginx:alpine
+    container_name: ai-task-analyst-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - ai-task-analyst
+    restart: unless-stopped
+    networks:
+      - ai-task-network
+    profiles:
+      - production
+
+networks:
+  ai-task-network:
+    driver: bridge
+
+volumes:
+  # Named volume for database persistence (alternative to bind mount)
+  database_data:

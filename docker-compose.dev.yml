@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  ai-task-analyst:
+    build: .
+    container_name: ai-task-analyst-dev
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount source code for hot reload
+      - .:/app
+      # Mount database file for persistence
+      - ./tasks.db:/app/tasks.db
+      # Mount logs directory
+      - ./logs:/app/logs
+      # Mount .env file for environment variables
+      - ./.env:/app/.env
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    restart: unless-stopped
+    networks:
+      - ai-task-network
+
+networks:
+  ai-task-network:
+    driver: bridge
